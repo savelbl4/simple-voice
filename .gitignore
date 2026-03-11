@@ -1,0 +1,6 @@
+/.idea
+/.venv*
+/transcripts
+.DS_Store
+*m4a
+*txt

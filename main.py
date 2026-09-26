@@ -9,9 +9,20 @@ import json
 from contextlib import nullcontext
 import soundfile as sf
 from tqdm import tqdm
+import ctranslate2
 from faster_whisper import WhisperModel
 
 AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".opus", ".mp4", ".mkv", ".webm", ".aac"}
+
+
+def select_device(device: str) -> str:
+    if device != "auto":
+        return device
+
+    try:
+        return "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+    except Exception:
+        return "cpu"
 
 
 def find_media(path: Path) -> Iterable[Path]:
@@ -181,7 +192,7 @@ def main():
     parser.add_argument("--model", type=str, default="medium",
                         help="Размер модели: tiny, base, small, medium, large-v3 (качество↑=скорость↓)")
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"],
-                        help="Где считать (auto подберёт сам)")
+                        help="Где считать (auto: CUDA при наличии, иначе CPU)")
     parser.add_argument("--compute-type", type=str, default="auto",
                         help="auto / int8 / int8_float16 / float16 / float32 (для GPU обычно float16)")
     parser.add_argument("--out", type=str, default="transcripts", help="Папка для результатов")
@@ -189,9 +200,10 @@ def main():
     parser.add_argument("--no-vad", action="store_true", help="Отключить VAD-фильтр")
     args = parser.parse_args()
 
+    device = select_device(args.device)
     model = WhisperModel(
         args.model,
-        device="cpu" if args.device == "auto" else args.device,
+        device=device,
         compute_type="default" if args.compute_type == "auto" else args.compute_type  # type: ignore
     )
 
@@ -203,7 +215,7 @@ def main():
         print("Не нашёл аудиофайлов по указанному пути.")
         return
 
-    print(f"Файлов к распознаванию: {len(files)}; модель: {args.model}")
+    print(f"Файлов к распознаванию: {len(files)}; модель: {args.model}; устройство: {device}")
     for p in tqdm(files, desc="Распознаю"):
         try:
             meta = transcribe_file(

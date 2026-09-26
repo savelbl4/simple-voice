@@ -19,3 +19,5 @@ python main.py 'название.m4a' --model medium --device auto --compute-typ
 python main.py 'records\название.m4a' --model large-v3 --device auto --compute-type int8
 
 ```
+
+`--device auto` использует CUDA при наличии совместимой GPU, иначе CPU.

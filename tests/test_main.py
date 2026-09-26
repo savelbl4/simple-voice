@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
-from main import ensure_wav_16k, seconds_to_srt, transcribe_file
+from main import ensure_wav_16k, output_dir_for, seconds_to_srt, transcribe_file
 
 
 class SecondsToSrtTests(unittest.TestCase):
@@ -68,3 +68,24 @@ class TemporaryFileCleanupTests(unittest.TestCase):
                     transcribe_file(model, Path(directory) / "input.m4a", Path(directory) / "out")
 
             self.assertFalse(temp_wav.exists())
+
+
+class OutputDirectoryTests(unittest.TestCase):
+    def test_preserves_source_subdirectories(self):
+        with TemporaryDirectory() as directory:
+            source_root = Path(directory) / "records"
+            media_path = source_root / "a" / "meeting.mp4"
+            media_path.parent.mkdir(parents=True)
+            media_path.touch()
+
+            result = output_dir_for(media_path, source_root, Path(directory) / "transcripts")
+
+            self.assertEqual(result, Path(directory) / "transcripts" / "a")
+
+    def test_uses_output_root_for_single_file(self):
+        with TemporaryDirectory() as directory:
+            media_path = Path(directory) / "meeting.mp4"
+            media_path.touch()
+            out_dir = Path(directory) / "transcripts"
+
+            self.assertEqual(output_dir_for(media_path, media_path, out_dir), out_dir)

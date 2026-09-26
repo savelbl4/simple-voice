@@ -35,6 +35,12 @@ def find_media(path: Path) -> Iterable[Path]:
                 yield p
 
 
+def output_dir_for(media_path: Path, input_path: Path, out_dir: Path) -> Path:
+    if input_path.is_dir():
+        return out_dir / media_path.relative_to(input_path).parent
+    return out_dir
+
+
 def seconds_to_srt(ts: float) -> str:
     total_ms = max(0, round((ts or 0.0) * 1000))
     total_seconds, ms = divmod(total_ms, 1000)
@@ -217,7 +223,7 @@ def main():
             meta = transcribe_file(
                 model,
                 p,
-                out_dir,
+                output_dir_for(p, target, out_dir),
                 beam_size=args.beam,
                 vad_filter=not args.no_vad
             )

@@ -64,21 +64,6 @@ def seconds_to_srt(ts: float) -> str:
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 
-def write_srt(segments, out_path: Path):
-    with out_path.open("w", encoding="utf-8") as f:
-        for i, seg in enumerate(segments, start=1):
-            start = seconds_to_srt(seg.start)
-            end = seconds_to_srt(seg.end)
-            text = seg.text.strip()
-            f.write(f"{i}\n{start} --> {end}\n{text}\n\n")
-
-
-def write_txt(segments, out_path: Path):
-    with out_path.open("w", encoding="utf-8") as f:
-        for seg in segments:
-            f.write(seg.text.strip() + "\n")
-
-
 def ensure_wav_16k(input_path: Path) -> Tuple[Path, Optional[Path]]:
     """
     Если вход уже WAV 16k mono — возвращаем как есть.

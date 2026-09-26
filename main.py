@@ -120,64 +120,64 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
     base = media_path.stem
 
     input_for_model, tmp_to_delete = ensure_wav_16k(media_path)
+    try:
+        total_sec = probe_duration_seconds(input_for_model)
+        pbar_cm = tqdm(total=total_sec if total_sec > 0 else None,
+                       unit="s", desc=f"{media_path.name}", leave=False)
 
-    total_sec = probe_duration_seconds(input_for_model)
-    pbar_cm = tqdm(total=total_sec if total_sec > 0 else None,
-                   unit="s", desc=f"{media_path.name}", leave=False)
+        # Стримингово пишем SRT/TXT
+        txt_path = out_dir / f"{base}.txt"
+        srt_path = out_dir / f"{base}.srt"
+        idx = 0
+        last_shown = 0.0
 
-    # Стримингово пишем SRT/TXT
-    txt_path = out_dir / f"{base}.txt"
-    srt_path = out_dir / f"{base}.srt"
-    idx = 0
-    last_shown = 0.0
+        with open(txt_path, "w", encoding="utf-8") as f_txt, \
+             open(srt_path, "w", encoding="utf-8") as f_srt, \
+             (pbar_cm if hasattr(pbar_cm, "__enter__") else nullcontext()) as pbar:
 
-    with open(txt_path, "w", encoding="utf-8") as f_txt, \
-         open(srt_path, "w", encoding="utf-8") as f_srt, \
-         (pbar_cm if hasattr(pbar_cm, "__enter__") else nullcontext()) as pbar:
+            segments, info = model.transcribe(
+                str(input_for_model),
+                beam_size=beam_size,
+                vad_filter=vad_filter,
+                language=None,
+                task="transcribe",
+                word_timestamps=False
+            )
 
-        segments, info = model.transcribe(
-            str(input_for_model),
-            beam_size=beam_size,
-            vad_filter=vad_filter,
-            language=None,
-            task="transcribe",
-            word_timestamps=False
-        )
+            for seg in segments:
+                idx += 1
+                text = seg.text.strip()
+                f_txt.write(text + "\n")
 
-        for seg in segments:
-            idx += 1
-            text = seg.text.strip()
-            f_txt.write(text + "\n")
+                start = seconds_to_srt(seg.start or 0.0)
+                end = seconds_to_srt(seg.end or (seg.start or 0.0))
+                f_srt.write(f"{idx}\n{start} --> {end}\n{text}\n\n")
 
-            start = seconds_to_srt(seg.start or 0.0)
-            end = seconds_to_srt(seg.end or (seg.start or 0.0))
-            f_srt.write(f"{idx}\n{start} --> {end}\n{text}\n\n")
+                # прогресс: обновляем на приращение по времени
+                if total_sec > 0 and pbar is not None:
+                    cur = float(seg.end or 0.0)
+                    inc = max(0.0, cur - last_shown)
+                    if inc > 0:
+                        pbar.update(inc)
+                        last_shown = cur
 
-            # прогресс: обновляем на приращение по времени
-            if total_sec > 0 and pbar is not None:
-                cur = float(seg.end or 0.0)
-                inc = max(0.0, cur - last_shown)
-                if inc > 0:
-                    pbar.update(inc)
-                    last_shown = cur
+            # если total неизвестен — аккуратно добьём прогресс
+            if total_sec > 0 and last_shown < total_sec and pbar is not None:
+                pbar.update(total_sec - last_shown)
 
-        # если total неизвестен — аккуратно добьём прогресс
-        if total_sec > 0 and last_shown < total_sec and pbar is not None:
-            pbar.update(total_sec - last_shown)
-
-    if tmp_to_delete and tmp_to_delete.exists():
-        try:
-            tmp_to_delete.unlink()
-        except Exception:
-            pass
-
-    return {
-        "language": info.language,
-        "language_probability": getattr(info, "language_probability", None),
-        "duration": total_sec,
-        "txt": str(txt_path),
-        "srt": str(srt_path),
-    }
+        return {
+            "language": info.language,
+            "language_probability": getattr(info, "language_probability", None),
+            "duration": total_sec,
+            "txt": str(txt_path),
+            "srt": str(srt_path),
+        }
+    finally:
+        if tmp_to_delete and tmp_to_delete.exists():
+            try:
+                tmp_to_delete.unlink()
+            except OSError:
+                pass
 
 def main():
     parser = argparse.ArgumentParser(description="Batch speech recognition with faster-whisper")

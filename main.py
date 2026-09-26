@@ -28,7 +28,8 @@ def select_device(device: str) -> str:
 
 def find_media(path: Path) -> Iterable[Path]:
     if path.is_file():
-        yield path
+        if path.suffix.lower() in AUDIO_EXTS:
+            yield path
     else:
         for p in path.rglob("*"):
             if p.suffix.lower() in AUDIO_EXTS and p.is_file():
@@ -232,19 +233,23 @@ def main() -> int:
     args = parser.parse_args()
 
     device = select_device(args.device)
-    model = WhisperModel(
-        args.model,
-        device=device,
-        compute_type="default" if args.compute_type == "auto" else args.compute_type  # type: ignore
-    )
-
     target = Path(args.path)
     out_dir = Path(args.out)
+    if target.is_file() and target.suffix.lower() not in AUDIO_EXTS:
+        print(f"Неподдерживаемый формат файла: {target.suffix or 'без расширения'}")
+        return 1
+
     files = sorted(find_media(target), key=lambda path: str(path).casefold())
 
     if not files:
         print("Не нашёл аудиофайлов по указанному пути.")
         return 1
+
+    model = WhisperModel(
+        args.model,
+        device=device,
+        compute_type="default" if args.compute_type == "auto" else args.compute_type  # type: ignore
+    )
 
     print(f"Файлов к распознаванию: {len(files)}; модель: {args.model}; устройство: {device}")
     used_stems: set[tuple[str, str]] = set()

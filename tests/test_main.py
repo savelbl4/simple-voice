@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
-from main import ensure_wav_16k, main, output_dir_for, seconds_to_srt, transcribe_file, unique_output_stem
+from main import ensure_wav_16k, find_media, main, output_dir_for, seconds_to_srt, transcribe_file, unique_output_stem
 
 
 class SecondsToSrtTests(unittest.TestCase):
@@ -137,3 +137,23 @@ class ExitCodeTests(unittest.TestCase):
              patch("main.transcribe_file", side_effect=RuntimeError("failed")), \
              patch("main.tqdm", side_effect=lambda iterable, **_kwargs: iterable):
             self.assertEqual(main(), 1)
+
+    def test_rejects_unsupported_single_file_before_loading_model(self):
+        with TemporaryDirectory() as directory:
+            unsupported_file = Path(directory) / "notes.txt"
+            unsupported_file.touch()
+
+            with patch("sys.argv", ["main.py", str(unsupported_file)]), \
+                 patch("main.WhisperModel") as whisper_model, \
+                 patch("builtins.print") as print_mock:
+                self.assertEqual(main(), 1)
+
+            whisper_model.assert_not_called()
+            print_mock.assert_called_once_with("Неподдерживаемый формат файла: .txt")
+
+    def test_find_media_skips_unsupported_single_file(self):
+        with TemporaryDirectory() as directory:
+            unsupported_file = Path(directory) / "notes.txt"
+            unsupported_file.touch()
+
+            self.assertEqual(list(find_media(unsupported_file)), [])

@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
-from main import ensure_wav_16k, output_dir_for, seconds_to_srt, transcribe_file, unique_output_stem
+from main import ensure_wav_16k, main, output_dir_for, seconds_to_srt, transcribe_file, unique_output_stem
 
 
 class SecondsToSrtTests(unittest.TestCase):
@@ -103,3 +103,19 @@ class OutputDirectoryTests(unittest.TestCase):
 
         self.assertEqual(unique_output_stem(Path("meeting.mp3"), Path("transcripts/a"), used_stems), "meeting")
         self.assertEqual(unique_output_stem(Path("meeting.mp4"), Path("transcripts/b"), used_stems), "meeting")
+
+
+class ExitCodeTests(unittest.TestCase):
+    def test_returns_nonzero_when_no_media_files_are_found(self):
+        with patch("sys.argv", ["main.py", "records"]), \
+             patch("main.WhisperModel"), \
+             patch("main.find_media", return_value=[]):
+            self.assertEqual(main(), 1)
+
+    def test_returns_nonzero_when_file_processing_fails(self):
+        with patch("sys.argv", ["main.py", "records"]), \
+             patch("main.WhisperModel"), \
+             patch("main.find_media", return_value=[Path("records/broken.m4a")]), \
+             patch("main.transcribe_file", side_effect=RuntimeError("failed")), \
+             patch("main.tqdm", side_effect=lambda iterable, **_kwargs: iterable):
+            self.assertEqual(main(), 1)

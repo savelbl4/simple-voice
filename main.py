@@ -203,7 +203,7 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
             except OSError:
                 pass
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Batch speech recognition with faster-whisper")
     parser.add_argument("path", type=str, help="Путь к файлу или папке с аудио/видео")
     parser.add_argument("--model", type=str, default="medium",
@@ -230,10 +230,11 @@ def main():
 
     if not files:
         print("Не нашёл аудиофайлов по указанному пути.")
-        return
+        return 1
 
     print(f"Файлов к распознаванию: {len(files)}; модель: {args.model}; устройство: {device}")
     used_stems: set[tuple[str, str]] = set()
+    failed = False
     for p in tqdm(files, desc="Распознаю"):
         try:
             file_out_dir = output_dir_for(p, target, out_dir)
@@ -247,8 +248,11 @@ def main():
             )
             print(f"[OK] {p.name} → {meta['txt']} ; {meta['srt']} (язык: {meta['language']})")
         except Exception as e:
+            failed = True
             print(f"[ERR] {p}: {e}")
+
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

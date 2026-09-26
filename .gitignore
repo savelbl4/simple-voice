@@ -4,3 +4,4 @@
 .DS_Store
 *m4a
 *txt
+__pycache__

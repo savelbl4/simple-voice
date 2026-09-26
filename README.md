@@ -75,3 +75,11 @@ python main.py "records" --out transcripts
 - `--compute-type`: например `int8` для CPU или `float16` для GPU.
 - `--beam`: размер beam search, по умолчанию `5`.
 - `--no-vad`: отключает VAD-фильтрацию.
+
+## Проверка
+
+Запустить unit-тесты:
+
+```powershell
+python -m unittest discover -s tests -v
+```

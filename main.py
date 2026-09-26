@@ -35,12 +35,10 @@ def find_media(path: Path) -> Iterable[Path]:
 
 
 def seconds_to_srt(ts: float) -> str:
-    if ts is None:
-        ts = 0.0
-    h = int(ts // 3600)
-    m = int((ts % 3600) // 60)
-    s = int(ts % 60)
-    ms = int((ts - int(ts)) * 1000)
+    total_ms = max(0, round((ts or 0.0) * 1000))
+    total_seconds, ms = divmod(total_ms, 1000)
+    h, remainder = divmod(total_seconds, 3600)
+    m, s = divmod(remainder, 60)
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
 
@@ -132,11 +130,6 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
     srt_path = out_dir / f"{base}.srt"
     idx = 0
     last_shown = 0.0
-
-    def seconds_to_srt(ts: float) -> str:
-        h = int(ts // 3600); m = int((ts % 3600) // 60); s = int(ts % 60)
-        ms = int(round((ts - int(ts)) * 1000))
-        return f"{h:02}:{m:02}:{s:02},{ms:03}"
 
     with open(txt_path, "w", encoding="utf-8") as f_txt, \
          open(srt_path, "w", encoding="utf-8") as f_srt, \

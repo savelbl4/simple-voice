@@ -69,6 +69,24 @@ class TemporaryFileCleanupTests(unittest.TestCase):
 
             self.assertFalse(temp_wav.exists())
 
+    def test_does_not_leave_partial_transcripts_when_transcription_fails(self):
+        def segments():
+            yield SimpleNamespace(start=0.0, end=1.0, text="First segment")
+            raise RuntimeError("model failed")
+
+        with TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            model = Mock()
+            model.transcribe.return_value = (segments(), SimpleNamespace())
+
+            with patch("main.ensure_wav_16k", return_value=(directory_path / "input.wav", None)), \
+                 patch("main.probe_duration_seconds", return_value=0.0), \
+                 patch("main.tqdm", return_value=nullcontext()):
+                with self.assertRaisesRegex(RuntimeError, "model failed"):
+                    transcribe_file(model, directory_path / "input.m4a", directory_path / "out")
+
+            self.assertEqual(list((directory_path / "out").iterdir()), [])
+
 
 class OutputDirectoryTests(unittest.TestCase):
     def test_preserves_source_subdirectories(self):

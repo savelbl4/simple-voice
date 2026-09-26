@@ -144,6 +144,8 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
     base = output_stem or media_path.stem
 
     input_for_model, tmp_to_delete = ensure_wav_16k(media_path)
+    txt_tmp: Optional[Path] = None
+    srt_tmp: Optional[Path] = None
     try:
         total_sec = probe_duration_seconds(input_for_model)
         pbar_cm = tqdm(total=total_sec if total_sec > 0 else None,
@@ -152,11 +154,17 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
         # Стримингово пишем SRT/TXT
         txt_path = out_dir / f"{base}.txt"
         srt_path = out_dir / f"{base}.srt"
+        txt_fd, txt_tmp_name = tempfile.mkstemp(dir=out_dir, prefix=f".{base}_", suffix=".txt.tmp")
+        os.close(txt_fd)
+        txt_tmp = Path(txt_tmp_name)
+        srt_fd, srt_tmp_name = tempfile.mkstemp(dir=out_dir, prefix=f".{base}_", suffix=".srt.tmp")
+        os.close(srt_fd)
+        srt_tmp = Path(srt_tmp_name)
         idx = 0
         last_shown = 0.0
 
-        with open(txt_path, "w", encoding="utf-8") as f_txt, \
-             open(srt_path, "w", encoding="utf-8") as f_srt, \
+        with open(txt_tmp, "w", encoding="utf-8") as f_txt, \
+             open(srt_tmp, "w", encoding="utf-8") as f_srt, \
              (pbar_cm if hasattr(pbar_cm, "__enter__") else nullcontext()) as pbar:
 
             segments, info = model.transcribe(
@@ -189,6 +197,9 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
             if total_sec > 0 and last_shown < total_sec and pbar is not None:
                 pbar.update(total_sec - last_shown)
 
+        txt_tmp.replace(txt_path)
+        srt_tmp.replace(srt_path)
+
         return {
             "language": info.language,
             "language_probability": getattr(info, "language_probability", None),
@@ -197,6 +208,9 @@ def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_s
             "srt": str(srt_path),
         }
     finally:
+        for output_tmp in (txt_tmp, srt_tmp):
+            if output_tmp:
+                output_tmp.unlink(missing_ok=True)
         if tmp_to_delete and tmp_to_delete.exists():
             try:
                 tmp_to_delete.unlink()

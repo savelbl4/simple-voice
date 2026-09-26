@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
-from main import ensure_wav_16k, output_dir_for, seconds_to_srt, transcribe_file
+from main import ensure_wav_16k, output_dir_for, seconds_to_srt, transcribe_file, unique_output_stem
 
 
 class SecondsToSrtTests(unittest.TestCase):
@@ -89,3 +89,17 @@ class OutputDirectoryTests(unittest.TestCase):
             out_dir = Path(directory) / "transcripts"
 
             self.assertEqual(output_dir_for(media_path, media_path, out_dir), out_dir)
+
+    def test_numbers_conflicting_stems_in_same_output_directory(self):
+        used_stems = set()
+        out_dir = Path("transcripts")
+
+        self.assertEqual(unique_output_stem(Path("meeting.mp3"), out_dir, used_stems), "meeting")
+        self.assertEqual(unique_output_stem(Path("meeting.mp4"), out_dir, used_stems), "meeting_2")
+        self.assertEqual(unique_output_stem(Path("meeting.wav"), out_dir, used_stems), "meeting_3")
+
+    def test_allows_same_stem_in_different_output_directories(self):
+        used_stems = set()
+
+        self.assertEqual(unique_output_stem(Path("meeting.mp3"), Path("transcripts/a"), used_stems), "meeting")
+        self.assertEqual(unique_output_stem(Path("meeting.mp4"), Path("transcripts/b"), used_stems), "meeting")

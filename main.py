@@ -41,6 +41,20 @@ def output_dir_for(media_path: Path, input_path: Path, out_dir: Path) -> Path:
     return out_dir
 
 
+def unique_output_stem(media_path: Path, out_dir: Path, used_stems: set[tuple[str, str]]) -> str:
+    stem = media_path.stem
+    candidate = stem
+    number = 2
+    output_dir_key = str(out_dir).casefold()
+
+    while (output_dir_key, candidate.casefold()) in used_stems:
+        candidate = f"{stem}_{number}"
+        number += 1
+
+    used_stems.add((output_dir_key, candidate.casefold()))
+    return candidate
+
+
 def seconds_to_srt(ts: float) -> str:
     total_ms = max(0, round((ts or 0.0) * 1000))
     total_seconds, ms = divmod(total_ms, 1000)
@@ -124,9 +138,10 @@ def probe_duration_seconds(path: Path) -> float:
         return 0.0  # неизвестно, сделаем прогресс без total
 
 
-def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_size=5, vad_filter=True):
+def transcribe_file(model: WhisperModel, media_path: Path, out_dir: Path, beam_size=5, vad_filter=True,
+                    output_stem: Optional[str] = None):
     out_dir.mkdir(parents=True, exist_ok=True)
-    base = media_path.stem
+    base = output_stem or media_path.stem
 
     input_for_model, tmp_to_delete = ensure_wav_16k(media_path)
     try:
@@ -211,21 +226,24 @@ def main():
 
     target = Path(args.path)
     out_dir = Path(args.out)
-    files = [p for p in find_media(target)]
+    files = sorted(find_media(target), key=lambda path: str(path).casefold())
 
     if not files:
         print("Не нашёл аудиофайлов по указанному пути.")
         return
 
     print(f"Файлов к распознаванию: {len(files)}; модель: {args.model}; устройство: {device}")
+    used_stems: set[tuple[str, str]] = set()
     for p in tqdm(files, desc="Распознаю"):
         try:
+            file_out_dir = output_dir_for(p, target, out_dir)
             meta = transcribe_file(
                 model,
                 p,
-                output_dir_for(p, target, out_dir),
+                file_out_dir,
                 beam_size=args.beam,
-                vad_filter=not args.no_vad
+                vad_filter=not args.no_vad,
+                output_stem=unique_output_stem(p, file_out_dir, used_stems)
             )
             print(f"[OK] {p.name} → {meta['txt']} ; {meta['srt']} (язык: {meta['language']})")
         except Exception as e:

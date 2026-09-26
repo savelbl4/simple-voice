@@ -6,6 +6,7 @@ from typing import Iterable, Tuple, Optional
 import subprocess
 import shutil
 import json
+import tempfile
 from contextlib import nullcontext
 import soundfile as sf
 from tqdm import tqdm
@@ -75,18 +76,20 @@ def ensure_wav_16k(input_path: Path) -> Tuple[Path, Optional[Path]]:
         need_convert = True
 
     if need_convert:
-        import tempfile, subprocess, shutil
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
             raise RuntimeError(
                 "Не найден ffmpeg. Установите его (например, brew install ffmpeg) и повторите."
             )
-        tmp_wav = Path(tempfile.gettempdir()) / f"{input_path.stem}_tmp16k.wav"
+        fd, tmp_name = tempfile.mkstemp(prefix=f"{input_path.stem}_", suffix=".wav")
+        os.close(fd)
+        tmp_wav = Path(tmp_name)
         # Конвертация в 16 kHz, mono WAV
         cmd = [ffmpeg, "-y", "-i", str(input_path), "-ac", "1", "-ar", "16000", str(tmp_wav)]
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if res.returncode != 0 or not tmp_wav.exists():
             err = res.stderr.decode(errors="ignore")
+            tmp_wav.unlink(missing_ok=True)
             raise RuntimeError(f"ffmpeg не смог декодировать {input_path}:\n{err[:2000]}")
         return tmp_wav, tmp_wav
 

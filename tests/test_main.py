@@ -3,8 +3,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
-from main import seconds_to_srt, transcribe_file
+from main import ensure_wav_16k, seconds_to_srt, transcribe_file
 
 
 class SecondsToSrtTests(unittest.TestCase):
@@ -34,6 +35,25 @@ class SecondsToSrtTests(unittest.TestCase):
 
 
 class TemporaryFileCleanupTests(unittest.TestCase):
+    def test_creates_unique_wav_for_same_input_name(self):
+        def fake_ffmpeg_run(command, **_kwargs):
+            Path(command[-1]).touch()
+            return SimpleNamespace(returncode=0, stderr=b"")
+
+        with patch("main.sf.info", side_effect=RuntimeError), \
+             patch("main.shutil.which", return_value="ffmpeg"), \
+             patch("main.subprocess.run", side_effect=fake_ffmpeg_run):
+            first_wav, first_temp = ensure_wav_16k(Path("recording.m4a"))
+            second_wav, second_temp = ensure_wav_16k(Path("recording.m4a"))
+
+        try:
+            self.assertNotEqual(first_wav, second_wav)
+            self.assertTrue(first_wav.exists())
+            self.assertTrue(second_wav.exists())
+        finally:
+            first_temp.unlink(missing_ok=True)
+            second_temp.unlink(missing_ok=True)
+
     def test_removes_converted_wav_when_transcription_fails(self):
         with TemporaryDirectory() as directory:
             temp_wav = Path(directory) / "converted.wav"

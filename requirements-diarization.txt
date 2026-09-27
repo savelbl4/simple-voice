@@ -1,0 +1,7 @@
+# Дополнительные зависимости для --diarize (устанавливаются поверх requirements.txt).
+# PyTorch ставьте отдельно ДО этого файла, выбрав сборку под своё железо (см. README):
+#   NVIDIA GPU: python -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+#   Только CPU: python -m pip install torch==2.11.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+# Проверено: Python 3.13, Windows, RTX 5070 Ti, CTranslate2 4.6.0.
+-r requirements.txt
+pyannote.audio==4.0.7

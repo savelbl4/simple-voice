@@ -1,7 +1,29 @@
+# IDE и редакторы
 /.idea
-/.venv*
-/transcripts
 .DS_Store
-*m4a
-*txt
+
+# Виртуальные окружения
+/.venv*
+
+# Директории с данными
+/records/                   # Исходные записи
+/transcripts/               # ВСЕ результаты транскрипции (voice + zoom)
+
+# Python
 __pycache__
+*.pyc
+
+# Конфиденциальные данные
+.env
+
+# Медиафайлы в корне (если случайно положили)
+/*.m4a
+/*.mp3
+/*.mp4
+/*.mkv
+/*.webm
+/*.wav
+/*.flac
+/*.ogg
+/*.opus
+/*.aac
